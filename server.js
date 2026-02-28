@@ -954,11 +954,29 @@ function resumePolling() {
 // ── Start ───────────────────────────────────────────────────────────
 
 app.listen(PORT, () => {
+    // ── Diagnostic: log DB & volume state on startup ──
+    const DB_PATH_RESOLVED = process.env.DB_PATH || './data/dreamify.db';
+    const dbExists = fs.existsSync(DB_PATH_RESOLVED);
+    const dbSizeMB = dbExists ? (fs.statSync(DB_PATH_RESOLVED).size / 1024 / 1024).toFixed(2) : '0';
+    const stats = queries.getStats.get();
+    const trackFiles = fs.existsSync(MUSIC_DIR) ? fs.readdirSync(MUSIC_DIR).filter(f => !f.startsWith('.')).length : 0;
+    const coverFiles = fs.existsSync(COVERS_DIR) ? fs.readdirSync(COVERS_DIR).filter(f => !f.startsWith('.')).length : 0;
+
     console.log(`
   ╔══════════════════════════════════════╗
   ║       🎵 spotif.ai is running       ║
   ║   http://localhost:${PORT}              ║
   ╚══════════════════════════════════════╝
+
+  📊 Startup diagnostics:
+     DB path:     ${path.resolve(DB_PATH_RESOLVED)}
+     DB exists:   ${dbExists}
+     DB size:     ${dbSizeMB} MB
+     Tracks (DB): ${stats.total_tracks}
+     Artists:     ${stats.total_artists}
+     Albums:      ${stats.total_albums}
+     Audio files: ${trackFiles}
+     Cover files: ${coverFiles}
   `);
     resumePolling();
     backfillPlaceholderCovers();
