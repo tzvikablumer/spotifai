@@ -823,6 +823,21 @@ app.delete('/api/tracks/:id', (req, res) => {
 
 const syncUpload = multer({ dest: path.join(MUSIC_DIR, '.tmp') });
 
+// Check if a track already exists on production (for dry-run / pre-check)
+app.get('/api/sync/check', (req, res) => {
+    const auth = req.headers.authorization || '';
+    if (auth !== `Bearer ${SYNC_SECRET}`) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { title, artist, album } = req.query;
+    if (!title || !artist) return res.status(400).json({ error: 'title and artist are required' });
+
+    const existing = db.prepare(
+        `SELECT id FROM tracks WHERE title = ? AND artist = ? AND album = ? AND status = 'ready' LIMIT 1`
+    ).get(title, artist, album || '');
+
+    res.json({ exists: !!existing, id: existing?.id || null });
+});
+
 app.post('/api/sync/import', syncUpload.fields([
     { name: 'audio', maxCount: 1 },
     { name: 'cover', maxCount: 1 },
@@ -835,6 +850,22 @@ app.post('/api/sync/import', syncUpload.fields([
         if (auth !== `Bearer ${SYNC_SECRET}`) return res.status(401).json({ error: 'Unauthorized' });
 
         const meta = JSON.parse(req.body.metadata);
+
+        // ── Duplicate check: skip if title+artist+album already exists ──
+        const existing = db.prepare(
+            `SELECT id FROM tracks WHERE title = ? AND artist = ? AND album = ? AND status = 'ready' LIMIT 1`
+        ).get(meta.title || 'Untitled', meta.artist || 'Unknown', meta.album || '');
+
+        if (existing) {
+            // Clean up any uploaded temp files
+            for (const field of Object.values(req.files || {})) {
+                for (const f of field) {
+                    try { fs.unlinkSync(f.path); } catch (_) { }
+                }
+            }
+            console.log(`Sync skipped (already exists): "${meta.title}" by ${meta.artist} → id=${existing.id}`);
+            return res.json({ success: true, id: existing.id, skipped: true });
+        }
 
         // Save audio file
         let filePath = '';

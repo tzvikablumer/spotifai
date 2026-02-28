@@ -162,7 +162,7 @@ async function syncTracks(tracks) {
 
     console.log(`\n📤 Syncing ${tracks.length} track(s) to ${PROD_URL}...\n`);
 
-    let ok = 0, fail = 0;
+    let ok = 0, skipped = 0, fail = 0;
     const seenArtists = new Set();
 
     for (const track of tracks) {
@@ -175,15 +175,20 @@ async function syncTracks(tracks) {
             seenArtists.add(track.artist);
 
             const result = await syncTrack(track);
-            console.log(`✅${label} → id=${result.id}`);
-            ok++;
+            if (result.skipped) {
+                console.log(`⏭️${label} (already exists, id=${result.id})`);
+                skipped++;
+            } else {
+                console.log(`✅${label} → id=${result.id}`);
+                ok++;
+            }
         } catch (err) {
             console.log(`❌${label} — ${err.message}`);
             fail++;
         }
     }
 
-    console.log(`\n🏁 Done: ${ok} synced, ${fail} failed.\n`);
+    console.log(`\n🏁 Done: ${ok} synced, ${skipped} skipped, ${fail} failed.\n`);
 }
 
 // ── CLI Entry Point ────────────────────────────────────────────────

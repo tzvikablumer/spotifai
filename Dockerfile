@@ -13,9 +13,6 @@ COPY . .
 # Install Python dependencies for alignment
 RUN pip3 install --break-system-packages stable-ts 2>/dev/null || true
 
-# Create data directories
-RUN mkdir -p /data/tracks /data/covers
-
 ENV PORT=3000
 ENV MUSIC_DIR=/data/tracks
 ENV COVERS_DIR=/data/covers
