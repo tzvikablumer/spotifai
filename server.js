@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const multer = require('multer');
 const { db, queries } = require('./db');
 const sonauto = require('./services/sonauto');
 const coverart = require('./services/coverart');
@@ -13,6 +14,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const MUSIC_DIR = process.env.MUSIC_DIR || './data/tracks';
 const COVERS_DIR = process.env.COVERS_DIR || './data/covers';
+const SYNC_SECRET = process.env.SYNC_SECRET || '';
 
 // Ensure directories
 fs.mkdirSync(MUSIC_DIR, { recursive: true });
@@ -815,6 +817,89 @@ app.delete('/api/tracks/:id', (req, res) => {
 
     queries.deleteTrack.run(track.id);
     res.json({ success: true });
+});
+
+// ── Sync Import ─────────────────────────────────────────────────────
+
+const syncUpload = multer({ dest: path.join(MUSIC_DIR, '.tmp') });
+
+app.post('/api/sync/import', syncUpload.fields([
+    { name: 'audio', maxCount: 1 },
+    { name: 'cover', maxCount: 1 },
+    { name: 'artist_photo', maxCount: 1 },
+]), (req, res) => {
+    try {
+        // Auth check
+        if (!SYNC_SECRET) return res.status(500).json({ error: 'SYNC_SECRET not configured on server' });
+        const auth = req.headers.authorization || '';
+        if (auth !== `Bearer ${SYNC_SECRET}`) return res.status(401).json({ error: 'Unauthorized' });
+
+        const meta = JSON.parse(req.body.metadata);
+
+        // Save audio file
+        let filePath = '';
+        if (req.files.audio && req.files.audio[0]) {
+            const audioFile = req.files.audio[0];
+            const filename = `track_sync_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.mp3`;
+            filePath = path.join(MUSIC_DIR, filename);
+            fs.renameSync(audioFile.path, filePath);
+        }
+
+        // Save cover file
+        let coverPath = '';
+        if (req.files.cover && req.files.cover[0]) {
+            const coverFile = req.files.cover[0];
+            const ext = path.extname(meta.cover_path || '.png') || '.png';
+            const filename = `cover_sync_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
+            coverPath = path.join(COVERS_DIR, filename);
+            fs.renameSync(coverFile.path, coverPath);
+        }
+
+        // Insert track
+        const result = queries.insertTrack.run({
+            title: meta.title || 'Untitled',
+            artist: meta.artist || 'Unknown',
+            album: meta.album || '',
+            genre: meta.genre || '',
+            prompt: meta.prompt || '',
+            tags: meta.tags || '',
+            art_prompt: meta.art_prompt || '',
+            instrumental: meta.instrumental ? 1 : 0,
+            track_number: meta.track_number || 0,
+            sonauto_task_id: '',
+            status: filePath ? 'ready' : 'pending',
+        });
+        const newId = Number(result.lastInsertRowid);
+
+        // Update file paths and duration
+        if (filePath) {
+            queries.updateTrackFile.run({ id: newId, file_path: filePath, duration: meta.duration || 0 });
+        }
+        if (coverPath) {
+            queries.updateTrackCover.run({ id: newId, cover_path: coverPath });
+        }
+
+        // Update lyrics if present
+        if (meta.lyrics) {
+            queries.updateTrackLyrics.run({ id: newId, lyrics: meta.lyrics, lyrics_aligned: meta.lyrics_aligned || '' });
+        }
+
+        // Save artist photo if provided
+        if (req.files.artist_photo && req.files.artist_photo[0] && meta.artist) {
+            const photoFile = req.files.artist_photo[0];
+            const ext = path.extname(meta.artist_photo_path || '.png') || '.png';
+            const filename = `artist_sync_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
+            const photoPath = path.join(COVERS_DIR, filename);
+            fs.renameSync(photoFile.path, photoPath);
+            queries.insertArtistPhoto.run(meta.artist, photoPath);
+        }
+
+        console.log(`Sync imported: "${meta.title}" by ${meta.artist} → id=${newId}`);
+        res.json({ success: true, id: newId });
+    } catch (err) {
+        console.error('Sync import error:', err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // ── SPA Fallback ────────────────────────────────────────────────────

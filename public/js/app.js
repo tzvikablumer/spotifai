@@ -907,6 +907,7 @@ const app = {
         }
         playerArtist.innerHTML = `<a href="#artist/${encodeURIComponent(track.artist)}">${esc(track.artist)}</a>`;
         const cover = document.getElementById('player-cover');
+        cover.style.display = '';
         cover.src = `/api/cover/${track.id}`;
         cover.onerror = () => { cover.style.background = 'var(--bg-active)'; cover.removeAttribute('src'); };
         cover.onclick = () => this.showCoverViewer(cover.src, `${track.title} — ${track.artist}`);
@@ -1013,6 +1014,7 @@ const app = {
             }
             playerArtist.innerHTML = `<a href="#artist/${encodeURIComponent(track.artist)}">${esc(track.artist)}</a>`;
             const cover = document.getElementById('player-cover');
+            cover.style.display = '';
             cover.src = `/api/cover/${track.id}`;
             cover.onerror = () => { cover.style.background = 'var(--bg-active)'; cover.removeAttribute('src'); };
             cover.onclick = () => this.showCoverViewer(cover.src, `${track.title} — ${track.artist}`);
