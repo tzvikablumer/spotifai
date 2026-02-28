@@ -1,0 +1,15 @@
+services:
+  dreamify:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/data
+    environment:
+      - SONAUTO_API_KEY=${SONAUTO_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - PORT=3000
+      - MUSIC_DIR=/data/tracks
+      - COVERS_DIR=/data/covers
+      - DB_PATH=/data/dreamify.db
+    restart: unless-stopped
