@@ -12,8 +12,9 @@ const { parseFile } = require('music-metadata');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const MUSIC_DIR = process.env.MUSIC_DIR || './data/tracks';
-const COVERS_DIR = process.env.COVERS_DIR || './data/covers';
+const IS_PROD = process.env.NODE_ENV === 'production';
+const MUSIC_DIR = process.env.MUSIC_DIR || (IS_PROD ? '/data/tracks' : './data/tracks');
+const COVERS_DIR = process.env.COVERS_DIR || (IS_PROD ? '/data/covers' : './data/covers');
 const SYNC_SECRET = process.env.SYNC_SECRET || '';
 
 // Ensure directories

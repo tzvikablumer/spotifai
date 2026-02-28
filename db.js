@@ -2,7 +2,8 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-const DB_PATH = process.env.DB_PATH || './data/dreamify.db';
+const IS_PROD = process.env.NODE_ENV === 'production';
+const DB_PATH = process.env.DB_PATH || (IS_PROD ? '/data/dreamify.db' : './data/dreamify.db');
 
 // Ensure data directory exists
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
