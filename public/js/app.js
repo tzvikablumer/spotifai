@@ -142,7 +142,7 @@ const app = {
         this.currentView = path || 'home';
 
         // Update active nav
-        document.querySelectorAll('.nav-link, .mobile-nav-item').forEach(el => {
+        document.querySelectorAll('.nav-link').forEach(el => {
             el.classList.toggle('active', el.dataset.view === this.currentView);
         });
 
